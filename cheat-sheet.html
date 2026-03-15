@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spring Boot Interview Cheat Sheet</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Georgia', serif;
+            font-size: 16px;
+            line-height: 1.7;
+            color: #292929;
+            background: #fff;
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 50px 24px 80px;
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
+            line-height: 1.25;
+            margin-bottom: 10px;
+            color: #111;
+        }
+
+        .subtitle {
+            font-size: 17px;
+            color: #6b6b6b;
+            font-style: italic;
+            margin-bottom: 36px;
+            border-left: 3px solid #e0e0e0;
+            padding-left: 14px;
+        }
+
+        h2 {
+            font-size: 20px;
+            font-weight: 700;
+            margin: 40px 0 10px;
+            color: #111;
+            border-bottom: 2px solid #111;
+            padding-bottom: 4px;
+        }
+
+        hr {
+            border: none;
+            border-top: 1px solid #e0e0e0;
+            margin: 36px 0;
+        }
+
+        code {
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+            font-size: 13px;
+            background: #f5f5f5;
+            padding: 2px 5px;
+            border-radius: 3px;
+            color: #c7254e;
+        }
+
+        strong { font-weight: 700; color: #111; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0 28px;
+            font-size: 14px;
+        }
+
+        th {
+            background: #111;
+            color: #fff;
+            text-align: left;
+            padding: 9px 13px;
+            border: 1px solid #333;
+            font-weight: 700;
+            font-size: 13px;
+            letter-spacing: 0.03em;
+        }
+
+        td {
+            padding: 9px 13px;
+            border: 1px solid #ddd;
+            vertical-align: top;
+        }
+
+        tr:nth-child(even) td { background: #fafafa; }
+
+        td:first-child { font-weight: 600; color: #333; width: 22%; }
+        td:nth-child(2) { width: 40%; }
+        td:nth-child(3) { width: 38%; color: #1a5276; }
+
+        footer {
+            margin-top: 50px;
+            font-style: italic;
+            color: #6b6b6b;
+            font-size: 14px;
+            border-top: 1px solid #e0e0e0;
+            padding-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Spring Boot Interview Cheat Sheet</h1>
+    <p class="subtitle">List of possible questions</p>
+
+    <!-- ─────────────────────────────────────────── -->
+    <h2>Service Layer</h2>
+    <table>
+        <thead>
+            <tr><th>Issue</th><th>Question They'll Ask</th><th>One-line Answer</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Duplicate conversion logic in 3 methods</td>
+                <td>"How do you eliminate the duplication? What's wrong with <code>forEach</code>?"</td>
+                <td>Extract <code>toActivityDto()</code> helper; use <code>stream().map()</code> — no side effects</td>
+            </tr>
+            <tr>
+                <td><code>findAll()</code> then filter in memory</td>
+                <td>"What's wrong? What happens with 10 million rows?"</td>
+                <td>Loads all rows into memory — use <code>findById()</code> or JPQL <code>WHERE</code> clause</td>
+            </tr>
+            <tr>
+                <td>Dead code — <code>searchActivities()</code> always returns <code>[]</code></td>
+                <td>"What does this method actually return?"</td>
+                <td>Items added to <code>activitiesDto</code> but <code>result</code> (empty) is returned — classic copy-paste bug</td>
+            </tr>
+            <tr>
+                <td>Inconsistent null handling — NPE in 2 of 3 methods</td>
+                <td>"What happens if supplier is null? When does it actually crash?"</td>
+                <td><code>@NotFound(IGNORE)</code> + orphaned <code>supplier_id=5</code> in seed data guarantees NPE at runtime</td>
+            </tr>
+            <tr>
+                <td>Missing <code>@Transactional(readOnly = true)</code></td>
+                <td>"Why use <code>readOnly = true</code>?"</td>
+                <td>Hibernate skips dirty checking — better performance for read-only queries</td>
+            </tr>
+            <tr>
+                <td>N+1 query problem</td>
+                <td>"How many queries for 100 activities? How do you fix it?"</td>
+                <td>101 queries (1 + N lazy supplier loads) — fix with <code>LEFT JOIN FETCH a.supplier</code></td>
+            </tr>
+            <tr>
+                <td>Checked exception in lambda</td>
+                <td>"Why doesn't <code>ActivityNotFoundException extends Exception</code> compile in a lambda?"</td>
+                <td>Checked exceptions can't be thrown from functional interfaces — extend <code>RuntimeException</code></td>
+            </tr>
+            <tr>
+                <td>Statistics query returns <code>SELECT *</code></td>
+                <td>"Does <code>getSupplierStats()</code> return actual statistics? What's wrong with <code>List&lt;Object[]&gt;</code>?"</td>
+                <td>No — it's just <code>SELECT *</code>. <code>Object[]</code> is type-unsafe. Use JPQL <code>COUNT/AVG/SUM GROUP BY</code> with a DTO</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- ─────────────────────────────────────────── -->
+    <h2>Controller Layer</h2>
+    <table>
+        <thead>
+            <tr><th>Issue</th><th>Question They'll Ask</th><th>One-line Answer</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>EntityManager</code> directly in controller</td>
+                <td>"Why shouldn't you put <code>EntityManager</code> in a controller?"</td>
+                <td>Violates layered architecture — data access belongs in the repository, not the web layer</td>
+            </tr>
+            <tr>
+                <td>In-memory supplier search with wrong fallback</td>
+                <td>"Is this search case-sensitive? What does it return when nothing matches?"</td>
+                <td>Case-sensitive; returns ALL suppliers as fallback — use JPQL <code>LIKE LOWER()</code> instead</td>
+            </tr>
+            <tr>
+                <td><code>@Controller</code> instead of <code>@RestController</code></td>
+                <td>"What's the difference? Will this work?"</td>
+                <td><code>@Controller</code> resolves view names — needs <code>@ResponseBody</code> per method. <code>@RestController</code> adds it to all methods</td>
+            </tr>
+            <tr>
+                <td><code>@PathVariable</code> null check</td>
+                <td>"When would <code>id</code> ever be null in a <code>@PathVariable</code>?"</td>
+                <td>Never — Spring returns 400 before the method is reached. The null check is dead code</td>
+            </tr>
+            <tr>
+                <td>Catch-all error handler always returns 500</td>
+                <td>"What's wrong with one <code>@ExceptionHandler(Exception.class)</code> handler?"</td>
+                <td>A 404 becomes a 500. Use specific handlers per exception type with correct HTTP codes</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- ─────────────────────────────────────────── -->
+    <h2>Entity Layer</h2>
+    <table>
+        <thead>
+            <tr><th>Issue</th><th>Question They'll Ask</th><th>One-line Answer</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>@Data</code> on JPA entity</td>
+                <td>"Why is <code>@Data</code> dangerous on a JPA entity?"</td>
+                <td><code>toString()</code> and <code>equals()</code> touch lazy proxies → <code>LazyInitializationException</code> or <code>StackOverflowError</code></td>
+            </tr>
+            <tr>
+                <td>Bidirectional <code>toString()</code> recursion</td>
+                <td>"What happens when Supplier calls toString() on its activities?"</td>
+                <td>Infinite recursion: <code>Supplier→Activity→Supplier→...</code> → <code>StackOverflowError</code>. Fix: <code>@ToString.Exclude</code></td>
+            </tr>
+            <tr>
+                <td><code>@NotFound(action = IGNORE)</code></td>
+                <td>"What does <code>@NotFound(IGNORE)</code> do when the supplier row doesn't exist?"</td>
+                <td>Hibernate silently sets <code>supplier = null</code> instead of throwing — callers must null-check</td>
+            </tr>
+            <tr>
+                <td><code>GenerationType.AUTO</code></td>
+                <td>"What's the difference between <code>AUTO</code> and <code>IDENTITY</code>?"</td>
+                <td><code>AUTO</code> may use a <code>hibernate_sequence</code> table; <code>IDENTITY</code> always uses the DB identity column</td>
+            </tr>
+            <tr>
+                <td>Primitive vs wrapper types</td>
+                <td>"Why use <code>Double</code> instead of <code>double</code> in an entity?"</td>
+                <td>Primitives can't be <code>null</code> — wrapper types map correctly to nullable DB columns</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- ─────────────────────────────────────────── -->
+    <h2>Repository &amp; DTO Layer</h2>
+    <table>
+        <thead>
+            <tr><th>Issue</th><th>Question They'll Ask</th><th>One-line Answer</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>JPQL constructor expression</td>
+                <td>"Why does <code>SELECT new SupplierStats(...)</code> fail without <code>@AllArgsConstructor</code>?"</td>
+                <td>JPQL calls the constructor by position — no <code>@AllArgsConstructor</code> means no matching constructor</td>
+            </tr>
+            <tr>
+                <td>Field order in DTO vs JPQL</td>
+                <td>"What happens if field order in the DTO doesn't match the JPQL select?"</td>
+                <td>Silent wrong values — no compile error, no runtime exception. <code>totalRevenue</code> gets <code>averageRating</code>'s value</td>
+            </tr>
+            <tr>
+                <td><code>SupplierStats</code> in wrong package</td>
+                <td>"Where should a DTO class live?"</td>
+                <td>In <code>dto</code> package — not <code>repository</code>. Mixing them breaks separation of concerns</td>
+            </tr>
+            <tr>
+                <td>Native SQL vs JPQL</td>
+                <td>"When would you use native SQL over JPQL?"</td>
+                <td>JPQL is DB-portable and type-safe. Native SQL only when DB-specific features (window functions, hints) are needed</td>
+            </tr>
+        </tbody>
+    </table>
+
+
+    <!-- ─────────────────────────────────────────── -->
+    <h2>Testing</h2>
+    <table>
+        <thead>
+            <tr><th>Issue</th><th>Question They'll Ask</th><th>One-line Answer</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>@WebMvcTest</code> vs <code>@SpringBootTest</code></td>
+                <td>"What's the difference? When do you use each?"</td>
+                <td><code>@WebMvcTest</code> — web layer only, mocked service, fast. <code>@SpringBootTest</code> — full context, real DB, slow</td>
+            </tr>
+            <tr>
+                <td><code>@DataJpaTest</code> with <code>replace = NONE</code></td>
+                <td>"Why add <code>@AutoConfigureTestDatabase(replace = NONE)</code>?"</td>
+                <td>Without it Spring replaces your configured datasource with an embedded one — your Flyway/SQL scripts may not run</td>
+            </tr>
+            <tr>
+                <td>Original tests called controller directly</td>
+                <td>"What's wrong with calling <code>controller.getActivities()</code> in a test?"</td>
+                <td>Bypasses HTTP layer — no status codes, no serialization, no filters. Use <code>MockMvc.perform(get(...))</code></td>
+            </tr>
+            <tr>
+                <td>Original tests had dead mock (<code>SupplierController</code>)</td>
+                <td>"Why mock something that's never used in the test?"</td>
+                <td>Dead mocks are noise — they don't fail but mislead reviewers and hide missing test coverage</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <footer>
+        Spring Boot · JPA · Hibernate · Testing — GetYourGuide coding challenge review
+    </footer>
+
+</body>
+</html>
