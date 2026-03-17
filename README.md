@@ -1,7 +1,7 @@
 # Software Engineer Backend Coding Interview
 
 ## Requirements
-* JDK 21
+* JDK 17
 
 ## Local Setup
 
